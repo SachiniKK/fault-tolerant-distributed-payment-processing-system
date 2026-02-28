@@ -6,6 +6,8 @@ import com.payment.ft.detection.NodeStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.payment.ft.failover.FailoverRouter;
+import org.springframework.http.MediaType;
 
 import java.time.Instant;
 import java.util.Map;
@@ -22,6 +24,8 @@ public class FaultToleranceController {
     private AppConfig config;
     @Autowired
     private HeartbeatMonitor heartbeatMonitor;
+    @Autowired
+    private FailoverRouter failoverRouter;
 
     /**
      * Health check endpoint.
@@ -47,5 +51,26 @@ public class FaultToleranceController {
                 "thisNode", config.getNodeId(),
                 "peers", statuses,
                 "healthyCount", heartbeatMonitor.getHealthyNodes().size()));
+    }
+
+    /**
+     * Client-facing payment endpoint.
+     * Receives a payment request and routes it to a healthy node.
+     * If the targeted node goes down, routes to the next healthy one.
+     */
+    @PostMapping(value = "/fault/payment", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<String> routePayment(@RequestBody String payload) {
+        return failoverRouter.route("/payment", payload);
+    }
+
+    /**
+     * Returns list of currently healthy nodes.
+     * Used by other modules and for testing.
+     */
+    @GetMapping("/fault/healthy-nodes")
+    public ResponseEntity<Object> healthyNodes() {
+        return ResponseEntity.ok(Map.of(
+                "healthyNodes", heartbeatMonitor.getHealthyNodes(),
+                "count", heartbeatMonitor.getHealthyNodes().size()));
     }
 }
