@@ -7,7 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.payment.ft.failover.FailoverRouter;
+import com.payment.ft.recovery.NodeRecoveryService;
 import org.springframework.http.MediaType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Map;
@@ -26,6 +29,10 @@ public class FaultToleranceController {
     private HeartbeatMonitor heartbeatMonitor;
     @Autowired
     private FailoverRouter failoverRouter;
+    @Autowired
+    private NodeRecoveryService recoveryService;
+
+    private static final Logger log = LoggerFactory.getLogger(FaultToleranceController.class);
 
     /**
      * Health check endpoint.
@@ -72,5 +79,33 @@ public class FaultToleranceController {
         return ResponseEntity.ok(Map.of(
                 "healthyNodes", heartbeatMonitor.getHealthyNodes(),
                 "count", heartbeatMonitor.getHealthyNodes().size()));
+    }
+
+    /**
+     * Called by recovering nodes to get transactions they missed.
+     * 'since' is a Unix epoch milliseconds timestamp.
+     */
+    @GetMapping("/recovery/sync")
+    public ResponseEntity<Map<String, Object>> syncData(
+            @RequestParam long since) {
+        // In full integration, this calls Member 2's replication service
+        // to get all transactions after 'since'
+        log.info("[RECOVERY] Peer requested sync since epoch: {}", since);
+        return ResponseEntity.ok(Map.of(
+                "requestedSince", since,
+                "message", "Sync data will be provided by replication module",
+                "thisNode", config.getNodeId()));
+    }
+
+    /**
+     * Shows whether this node has completed its recovery.
+     * Used by other nodes before sending payment requests here.
+     */
+    @GetMapping("/fault/recovery-status")
+    public ResponseEntity<Map<String, Object>> recoveryStatus() {
+        return ResponseEntity.ok(Map.of(
+                "nodeId", config.getNodeId(),
+                "recoveryComplete", recoveryService.isRecoveryComplete(),
+                "timestamp", Instant.now().toString()));
     }
 }
