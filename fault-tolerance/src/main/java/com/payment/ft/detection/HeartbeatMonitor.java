@@ -58,8 +58,8 @@ public class HeartbeatMonitor {
      */
     @Scheduled(fixedDelayString = "${app.heartbeat.interval-ms:2000}")
     public void checkAllPeers() {
-        List<String> peers = config.getPeerUrls();
-        for (String peerUrl : peers) {
+        // Use keyset from map to include dynamically discovered peers from ZooKeeper
+        for (String peerUrl : statusMap.keySet()) {
             checkPeer(peerUrl);
         }
     }
@@ -133,5 +133,15 @@ public class HeartbeatMonitor {
         missedCounts.put(peerUrl, 0);
         statusMap.put(peerUrl, NodeStatus.UNKNOWN);
         log.info("[HEARTBEAT] Node {} reset to UNKNOWN (rejoining)", peerUrl);
+    }
+
+    /**
+     * Immediately marks a node as DOWN.
+     * Called by NodeWatcher when ZooKeeper detects a crash.
+     */
+    public void forceDown(String peerUrl) {
+        missedCounts.put(peerUrl, config.getMissedThreshold());
+        statusMap.put(peerUrl, NodeStatus.DOWN);
+        log.error("[HEARTBEAT] Node {} FORCED DOWN via external event (ZooKeeper)!", peerUrl);
     }
 }

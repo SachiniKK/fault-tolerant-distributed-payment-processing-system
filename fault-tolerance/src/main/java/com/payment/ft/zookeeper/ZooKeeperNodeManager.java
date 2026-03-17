@@ -3,8 +3,8 @@ package com.payment.ft.zookeeper;
 import com.payment.ft.config.AppConfig;
 import com.payment.ft.config.ZooKeeperConfig;
 import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.zookeeper.CreateMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,10 +69,10 @@ public class ZooKeeperNodeManager {
      */
     private void registerThisNode() throws Exception {
         String nodePath = ZooKeeperConfig.NODES_ROOT + "/" + config.getNodeId();
-        String nodeData = config.getNodeHost() + ":" + config.getPort();
+        // Stores http://host:port so peers can call us directly
+        String nodeData = "http://" + config.getNodeHost() + ":" + config.getPort();
 
-        // If a stale entry exists (e.g., from a crash without clean shutdown), delete
-        // it
+        // If a stale entry exists (e.g., from a crash without clean shutdown), delete it
         if (curator.checkExists().forPath(nodePath) != null) {
             curator.delete().forPath(nodePath);
         }
@@ -92,17 +92,21 @@ public class ZooKeeperNodeManager {
         nodeCache = new PathChildrenCache(curator, ZooKeeperConfig.NODES_ROOT, true);
 
         nodeCache.getListenable().addListener((curatorClient, event) -> {
-            String childPath = event.getData() != null ? event.getData().getPath() : "unknown";
+            ChildData data = event.getData();
+            if (data == null) return;
+
+            String childPath = data.getPath();
             String nodeId = childPath.replace(ZooKeeperConfig.NODES_ROOT + "/", "");
+            String nodeUrl = new String(data.getData(), StandardCharsets.UTF_8);
 
             switch (event.getType()) {
                 case CHILD_ADDED:
-                    log.info("[ZOOKEEPER] Node joined cluster: {}", nodeId);
-                    nodeWatcher.onNodeJoined(nodeId);
+                    log.info("[ZOOKEEPER] Node joined cluster: {} at URL: {}", nodeId, nodeUrl);
+                    nodeWatcher.onNodeJoined(nodeId, nodeUrl);
                     break;
                 case CHILD_REMOVED:
-                    log.warn("[ZOOKEEPER] Node left/crashed: {}", nodeId);
-                    nodeWatcher.onNodeFailed(nodeId);
+                    log.warn("[ZOOKEEPER] Node left/crashed: {} (URL: {})", nodeId, nodeUrl);
+                    nodeWatcher.onNodeFailed(nodeId, nodeUrl);
                     break;
                 default:
                     break;

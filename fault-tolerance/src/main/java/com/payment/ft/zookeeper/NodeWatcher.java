@@ -27,45 +27,24 @@ public class NodeWatcher {
      * Called when a new node appears in ZooKeeper (startup or rejoin).
      * Resets the node's heartbeat counter so it gets a fresh start.
      */
-    public void onNodeJoined(String nodeId) {
+    public void onNodeJoined(String nodeId, String nodeUrl) {
         if (nodeId.equals(config.getNodeId())) {
             return; // Don't watch ourselves
         }
-        log.info("[WATCHER] Node {} joined — resetting heartbeat state", nodeId);
-
-        // Find the URL for this nodeId from the peers list
-        String peerUrl = findUrlForNodeId(nodeId);
-        if (peerUrl != null) {
-            heartbeatMonitor.resetNode(peerUrl);
-        }
+        log.info("[WATCHER] Node {} joined at {} — resetting heartbeat state", nodeId, nodeUrl);
+        heartbeatMonitor.resetNode(nodeUrl);
     }
 
     /**
      * Called when a node disappears from ZooKeeper (crash or clean shutdown).
      * ZooKeeper auto-detects this via the ephemeral node expiring.
      */
-    public void onNodeFailed(String nodeId) {
+    public void onNodeFailed(String nodeId, String nodeUrl) {
         if (nodeId.equals(config.getNodeId())) {
             return; // Don't process events about ourselves
         }
         log.error("[WATCHER] Node {} detected as FAILED via ZooKeeper!", nodeId);
-        // HeartbeatMonitor will mark it DOWN within its next cycle
-        // ZooKeeper gives us early warning before the 3-beat threshold
-    }
-
-    /**
-     * Derives peer URL from nodeId using the convention node1->8081, node2->8082
-     */
-    private String findUrlForNodeId(String nodeId) {
-        for (String url : config.getPeerUrls()) {
-            if (url.contains("808")) {
-                // Simple mapping: node1->8081, node2->8082, node3->8083
-                String num = nodeId.replace("node", "");
-                String port = "808" + num;
-                if (url.contains(port))
-                    return url;
-            }
-        }
-        return null;
+        // Immediately mark the node as DOWN for faster failover
+        heartbeatMonitor.forceDown(nodeUrl);
     }
 }
