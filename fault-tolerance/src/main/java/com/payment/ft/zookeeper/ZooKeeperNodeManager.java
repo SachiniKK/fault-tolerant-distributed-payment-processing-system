@@ -15,6 +15,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Manages this node's registration in ZooKeeper and monitors peer nodes.
@@ -44,6 +45,10 @@ public class ZooKeeperNodeManager {
     @PostConstruct
     public void initialize() {
         try {
+            log.info("[ZOOKEEPER] Waiting for connection to ZooKeeper...");
+            if (!curator.blockUntilConnected(10, TimeUnit.SECONDS)) {
+                throw new RuntimeException("Timeout waiting for ZooKeeper connection");
+            }
             ensureRootPathExists();
             registerThisNode();
             startWatchingNodes();

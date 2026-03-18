@@ -61,13 +61,24 @@ public class FaultToleranceController {
     }
 
     /**
+     * Dashboard endpoint showing all peer node statuses.
+     * Useful for the demo video — shows which nodes are UP/DOWN.
+     */
+    @PostMapping("/fault/process-payment")
+    public ResponseEntity<String> processPayment(@RequestBody String body) {
+        // FOR MOCKING: Successfully process the payment
+        log.info("[CONTROLLER] Successfully processed payment locally: {}", body);
+        return ResponseEntity.ok("Payment processed successfully by node: " + config.getNodeId());
+    }
+
+    /**
      * Client-facing payment endpoint.
      * Receives a payment request and routes it to a healthy node.
      * If the targeted node goes down, routes to the next healthy one.
      */
     @PostMapping(value = "/fault/payment", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> routePayment(@RequestBody String payload) {
-        return failoverRouter.route("/payment", payload);
+        return failoverRouter.route("/fault/process-payment", payload);
     }
 
     /**

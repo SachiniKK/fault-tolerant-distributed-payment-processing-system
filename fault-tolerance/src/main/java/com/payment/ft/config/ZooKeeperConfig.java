@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ZooKeeperConfig {
 
-    @Value("${app.zookeeper.connect-string:localhost:2181}")
+    @Value("${app.zookeeper.connect-string:127.0.0.1:2181}")
     private String connectString;
 
     @Value("${app.zookeeper.session-timeout-ms:5000}")
