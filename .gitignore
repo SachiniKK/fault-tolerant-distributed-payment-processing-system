@@ -46,3 +46,5 @@ logs/
 .vscode/
 *.class
 
+SESSION_SUMMARY.md
+INTEGRATION_ANALYSIS.md

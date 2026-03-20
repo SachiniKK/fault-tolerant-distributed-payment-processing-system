@@ -1,16 +1,27 @@
 package com.payment.consensus.controller;
 
-import com.payment.consensus.config.RaftConfig;
-import com.payment.consensus.model.*;
-import com.payment.consensus.service.RaftLog;
-import com.payment.consensus.service.RaftNode;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
+import com.payment.consensus.config.RaftConfig;
+import com.payment.consensus.model.AppendEntriesRequest;
+import com.payment.consensus.model.AppendEntriesResponse;
+import com.payment.consensus.model.LogEntry;
+import com.payment.consensus.model.VoteRequest;
+import com.payment.consensus.model.VoteResponse;
+import com.payment.consensus.service.RaftLog;
+import com.payment.consensus.service.RaftNode;
 
 @RestController
 public class RaftController {
@@ -68,5 +79,22 @@ public class RaftController {
                 "currentLeader", raftNode.getCurrentLeaderId() != null ? raftNode.getCurrentLeaderId() : "unknown",
                 "logSize", raftLog.size(),
                 "commitIndex", raftLog.getCommitIndex()));
+    }
+
+    @GetMapping("/raft/log")
+    public ResponseEntity<List<Map<String, Object>>> getLog() {
+        List<LogEntry> entries = raftLog.getEntries(1, raftLog.size());
+        int commitIndex = raftLog.getCommitIndex();
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (LogEntry entry : entries) {
+            Map<String, Object> entryMap = new HashMap<>();
+            entryMap.put("index", entry.getIndex());
+            entryMap.put("term", entry.getTerm());
+            entryMap.put("command", entry.getCommand());
+            entryMap.put("committed", entry.getIndex() <= commitIndex);
+            result.add(entryMap);
+        }
+        return ResponseEntity.ok(result);
     }
 }
