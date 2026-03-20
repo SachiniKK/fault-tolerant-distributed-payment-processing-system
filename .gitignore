@@ -39,3 +39,10 @@ build/
 .DS_Store
 consensus/RAFT_CONSENSUS_DOCUMENTATION.md
 consensus/TESTING_GUIDE.md
+target/
+logs/
+*.log
+.idea/
+.vscode/
+*.class
+

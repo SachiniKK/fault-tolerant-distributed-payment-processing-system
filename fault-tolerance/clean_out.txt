@@ -1,0 +1,59 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------< com.payment:fault-tolerance >---------------------
+[INFO] Building fault-tolerance 1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ fault-tolerance ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ fault-tolerance ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] >>> spring-boot:3.2.0:run (default-cli) > test-compile @ fault-tolerance >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ fault-tolerance ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ fault-tolerance ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ fault-tolerance ---
+[INFO] skip non existing resourceDirectory E:\CS\DS\fault-tolerant-distributed-payment-processing-system\fault-tolerance\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ fault-tolerance ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] <<< spring-boot:3.2.0:run (default-cli) < test-compile @ fault-tolerance <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.2.0:run (default-cli) @ fault-tolerance ---
+[INFO] Attaching agents: []
+Exception in thread "main" java.lang.AbstractMethodError: Receiver class org.springframework.boot.logging.logback.RootLogLevelConfigurator does not define or inherit an implementation of the resolved method 'abstract void configure(ch.qos.logback.classic.LoggerContext)' of interface ch.qos.logback.classic.spi.Configurator.
+	at ch.qos.logback.classic.util.ContextInitializer.autoConfig(ContextInitializer.java:140)
+	at org.slf4j.impl.StaticLoggerBinder.init(StaticLoggerBinder.java:84)
+	at org.slf4j.impl.StaticLoggerBinder.<clinit>(StaticLoggerBinder.java:55)
+	at org.slf4j.LoggerFactory.bind(LoggerFactory.java:150)
+	at org.slf4j.LoggerFactory.performInitialization(LoggerFactory.java:124)
+	at org.slf4j.LoggerFactory.getILoggerFactory(LoggerFactory.java:417)
+	at org.slf4j.LoggerFactory.getLogger(LoggerFactory.java:362)
+	at org.apache.commons.logging.LogAdapter$Slf4jAdapter.createLocationAwareLog(LogAdapter.java:121)
+	at org.apache.commons.logging.LogAdapter.createLog(LogAdapter.java:95)
+	at org.apache.commons.logging.LogFactory.getLog(LogFactory.java:67)
+	at org.apache.commons.logging.LogFactory.getLog(LogFactory.java:59)
+	at org.springframework.boot.SpringApplication.<clinit>(SpringApplication.java:191)
+	at com.payment.ft.FaultToleranceApplication.main(FaultToleranceApplication.java:17)
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  2.033 s
+[INFO] Finished at: 2026-02-27T23:13:12+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.2.0:run (default-cli) on project fault-tolerance: Process terminated with exit code: 1 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException
