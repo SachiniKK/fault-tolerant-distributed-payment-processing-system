@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.CrossOrigin;
 
 import com.payment.consensus.config.RaftConfig;
 import com.payment.consensus.model.AppendEntriesRequest;
@@ -24,6 +25,7 @@ import com.payment.consensus.service.RaftLog;
 import com.payment.consensus.service.RaftNode;
 
 @RestController
+@CrossOrigin(origins = "*")
 public class RaftController {
     private static final Logger log = LoggerFactory.getLogger(RaftController.class);
 
