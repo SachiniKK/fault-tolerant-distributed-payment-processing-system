@@ -27,7 +27,7 @@ public class ReplicationConfig {
     @Value("${app.replication.write-quorum:2}")
     private int writeQuorum;
 
-    @Value("${app.idempotency.ttl-minutes:5}")
+    @Value("${app.dedup.ttl-minutes:5}")
     private int idempotencyTtlMinutes;
 
     public String getNodeId() { return nodeId; }
