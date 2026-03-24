@@ -1,0 +1,45 @@
+# Payment Gateway Configuration
+# This module integrates all 4 components: FT, Consensus, TimeSync, Replication
+
+server:
+  port: ${GATEWAY_PORT:8090}
+
+spring:
+  application:
+    name: payment-gateway
+
+# Gateway node configuration
+gateway:
+  node-id: ${NODE_ID:gateway-1}
+
+# Module endpoints - where each module is running
+modules:
+  fault-tolerance:
+    urls:
+      - http://localhost:8081
+      - http://localhost:8082
+      - http://localhost:8083
+  consensus:
+    urls:
+      - http://localhost:9001
+      - http://localhost:9002
+      - http://localhost:9003
+  time-sync:
+    urls:
+      - http://localhost:7001
+      - http://localhost:7002
+      - http://localhost:7003
+  replication:
+    urls:
+      - http://localhost:6001
+      - http://localhost:6002
+      - http://localhost:6003
+
+# Timeouts
+http:
+  connect-timeout-ms: 3000
+  read-timeout-ms: 5000
+
+logging:
+  level:
+    com.payment.gateway: DEBUG
