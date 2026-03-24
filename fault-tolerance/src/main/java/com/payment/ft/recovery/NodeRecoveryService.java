@@ -74,7 +74,7 @@ public class NodeRecoveryService {
 
         // Ask the first healthy peer for transactions we missed
         String peer = healthyPeers.get(0);
-        String syncUrl = peer + "/recovery/sync?since=" + lastSeenTimestamp.toEpochMilli();
+        String syncUrl = peer + "/internal/ledger-sync?since=" + lastSeenTimestamp.toEpochMilli();
 
         try {
             log.info("[RECOVERY] Requesting missed transactions from {} since {}",
