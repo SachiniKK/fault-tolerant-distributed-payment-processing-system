@@ -8,6 +8,8 @@ public class LogEntry implements Serializable {
     private int term;
     private int index;
     private String command;
+    private long timestamp;           // Raw system time (Member 3)
+    private long correctedTimestamp;  // NTP-corrected time (Member 3)
 
     public LogEntry() {
     }
@@ -40,6 +42,22 @@ public class LogEntry implements Serializable {
 
     public void setCommand(String command) {
         this.command = command;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public long getCorrectedTimestamp() {
+        return correctedTimestamp;
+    }
+
+    public void setCorrectedTimestamp(long correctedTimestamp) {
+        this.correctedTimestamp = correctedTimestamp;
     }
 
     @Override
