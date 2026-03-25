@@ -100,7 +100,7 @@ public class FaultToleranceController {
      */
     @GetMapping("/recovery/sync")
     public ResponseEntity<Map<String, Object>> syncData(
-            @RequestParam long since) {
+            @RequestParam("since") long since) {
         // In full integration, this calls Member 2's replication service
         // to get all transactions after 'since'
         log.info("[RECOVERY] Peer requested sync since epoch: {}", since);
