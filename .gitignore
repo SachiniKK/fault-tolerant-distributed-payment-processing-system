@@ -37,6 +37,8 @@ build/
 
 ### Mac OS ###
 .DS_Store
+consensus/RAFT_CONSENSUS_DOCUMENTATION.md
+consensus/TESTING_GUIDE.md
 target/
 logs/
 *.log
@@ -44,3 +46,5 @@ logs/
 .vscode/
 *.class
 
+SESSION_SUMMARY.md
+INTEGRATION_ANALYSIS.md

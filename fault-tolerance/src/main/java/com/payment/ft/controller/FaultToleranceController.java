@@ -6,6 +6,7 @@ import com.payment.ft.detection.NodeStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import com.payment.ft.failover.FailoverRouter;
 import com.payment.ft.recovery.NodeRecoveryService;
 import org.springframework.http.MediaType;
@@ -21,6 +22,7 @@ import java.util.Map;
  * /fault/status — shows the health of all known peers (useful for demo)
  */
 @RestController
+@CrossOrigin(origins = "*")
 public class FaultToleranceController {
 
     @Autowired

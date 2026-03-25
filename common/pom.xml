@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>common</artifactId>
+    <description>Shared models and interfaces for all payment system modules</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
