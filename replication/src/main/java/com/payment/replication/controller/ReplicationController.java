@@ -1,8 +1,9 @@
-package com.payment.replication.replication;
+package com.payment.replication.controller;
 
 import com.payment.common.Transaction;
 import com.payment.replication.config.ReplicationConfig;
 import com.payment.replication.service.DeduplicationService;
+import com.payment.replication.service.ReplicationService;
 import com.payment.replication.service.TransactionLedger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +32,7 @@ public class ReplicationController {
     private static final Logger log = LoggerFactory.getLogger(ReplicationController.class);
 
     @Autowired private ReplicationConfig config;
-    @Autowired private ReplicationManager replicationManager;
+    @Autowired private ReplicationService replicationManager;
     @Autowired private TransactionLedger ledgerStore;
     @Autowired private DeduplicationService dedup;
 
