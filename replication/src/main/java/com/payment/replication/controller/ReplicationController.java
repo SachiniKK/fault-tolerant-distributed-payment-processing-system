@@ -28,6 +28,7 @@ import java.util.*;
  *   GET  /internal/ledger-sync?since=  — recovery sync for crashed nodes
  */
 @RestController
+@CrossOrigin(origins = "*")
 public class ReplicationController {
     private static final Logger log = LoggerFactory.getLogger(ReplicationController.class);
 
@@ -78,7 +79,7 @@ public class ReplicationController {
     public ResponseEntity<Map<String, Object>> status() {
         return ResponseEntity.ok(Map.of(
                 "nodeId", config.getNodeId(),
-                "totalEntries", ledgerStore.size(),
+                "totalTransactions", ledgerStore.size(),
                 "writeQuorum", config.getWriteQuorum(),
                 "readQuorum", config.getReadQuorum(),
                 "peerCount", config.getPeerUrls().size(),
@@ -122,5 +123,13 @@ public class ReplicationController {
         List<Transaction> missed = ledgerStore.getTransactionsSince(since);
         log.info("[API] Ledger sync request: returning {} entries since {}", missed.size(), since);
         return ResponseEntity.ok(missed);
+    }
+
+    /**
+     * List all transactions stored on this node.
+     */
+    @GetMapping("/transactions")
+    public ResponseEntity<Collection<Transaction>> getAllTransactions() {
+        return ResponseEntity.ok(ledgerStore.getAll());
     }
 }

@@ -373,25 +373,48 @@
         </div>
     </div>
     <script>
-        const CONFIG = { GATEWAY_URL: 'http://localhost:8090', REFRESH_INTERVAL: 3000, API_TIMEOUT: 2000 };
+        const CONFIG = { GATEWAY_URL: 'http://localhost:8090', REFRESH_INTERVAL: 3000, CONSENSUS_REFRESH_INTERVAL: 1000, API_TIMEOUT: 2000 };
         const NODES = {
             FAULT_TOLERANCE: [{ id: 'ft-1', port: 8081, name: 'FT Node Alpha' }, { id: 'ft-2', port: 8082, name: 'FT Node Beta' }, { id: 'ft-3', port: 8083, name: 'FT Node Gamma' }],
             CONSENSUS: [{ id: 'raft-1', port: 9001, name: 'Raft Alpha' }, { id: 'raft-2', port: 9002, name: 'Raft Beta' }, { id: 'raft-3', port: 9003, name: 'Raft Gamma' }],
             TIME_SYNC: [{ id: 'ts-1', port: 8084, name: 'TimeSync Node 1' }, { id: 'ts-2', port: 8085, name: 'TimeSync Node 2' }, { id: 'ts-3', port: 8086, name: 'TimeSync Node 3' }],
             REPLICATION: [{ id: 'repl-1', port: 6001, name: 'Replica Node 1' }, { id: 'repl-2', port: 6002, name: 'Replica Node 2' }, { id: 'repl-3', port: 6003, name: 'Replica Node 3' }]
         };
-        const state = { currentView: 'overview', transactions: [], charts: {}, failovers: 0 };
+        const state = { currentView: 'overview', transactions: [], charts: {}, failovers: 0, refreshTimer: null, refreshInProgress: false };
         async function apiCall(url, options = {}) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT);
             try {
-                const response = await fetch(url, { ...options, signal: controller.signal, headers: { 'Content-Type': 'application/json', ...options.headers } });
+                const headers = { ...(options.headers || {}) };
+                const hasBody = options.body !== undefined && options.body !== null;
+                if (hasBody && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+                const response = await fetch(url, { ...options, cache: 'no-store', signal: controller.signal, headers });
                 clearTimeout(timeoutId);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 return await response.json();
             } catch (error) { clearTimeout(timeoutId); throw error; }
         }
         async function checkHealth(port, endpoint = '/health') { try { await apiCall(`http://localhost:${port}${endpoint}`); return true; } catch { return false; } }
+        function getRefreshInterval() { return state.currentView === 'consensus' ? CONFIG.CONSENSUS_REFRESH_INTERVAL : CONFIG.REFRESH_INTERVAL; }
+        function scheduleRefresh() {
+            if (state.refreshTimer) clearTimeout(state.refreshTimer);
+            state.refreshTimer = setTimeout(runRefreshCycle, getRefreshInterval());
+        }
+        async function runRefreshCycle() {
+            if (state.refreshInProgress) {
+                scheduleRefresh();
+                return;
+            }
+            state.refreshInProgress = true;
+            try {
+                await refreshCurrentView();
+                updateCharts();
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            } finally {
+                state.refreshInProgress = false;
+                scheduleRefresh();
+            }
+        }
         function switchView(viewName) {
             state.currentView = viewName;
             document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === viewName));
@@ -400,10 +423,12 @@
             const { title, subtitle } = titles[viewName] || titles.overview;
             document.getElementById('page-title').textContent = title; document.getElementById('page-subtitle').textContent = subtitle;
             refreshCurrentView();
+            scheduleRefresh();
         }
         function refreshCurrentView() {
             const refreshers = { overview: refreshOverview, gateway: refreshGateway, 'fault-tolerance': refreshFaultTolerance, consensus: refreshConsensus, 'time-sync': refreshTimeSync, replication: refreshReplication };
-            const refresher = refreshers[state.currentView]; if (refresher) refresher();
+            const refresher = refreshers[state.currentView];
+            return refresher ? refresher() : Promise.resolve();
         }
         async function refreshOverview() {
             try {
@@ -499,7 +524,7 @@
             if (state.charts.latency) { const data = state.charts.latency.data.datasets[0].data; data.shift(); data.push(Math.floor(Math.random() * 30 + 15)); state.charts.latency.update('none'); }
             if (state.charts.clock) { state.charts.clock.data.datasets.forEach(dataset => { dataset.data.shift(); dataset.data.push(Math.random() * 5); }); state.charts.clock.update('none'); }
         }
-        document.addEventListener('DOMContentLoaded', () => { initCharts(); refreshCurrentView(); setInterval(() => { refreshCurrentView(); updateCharts(); document.getElementById('last-update').textContent = new Date().toLocaleTimeString(); }, CONFIG.REFRESH_INTERVAL); document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePaymentModal(); }); });
+        document.addEventListener('DOMContentLoaded', () => { initCharts(); runRefreshCycle(); document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePaymentModal(); }); });
         document.getElementById('paymentModal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closePaymentModal(); });
     </script>
 </body>
