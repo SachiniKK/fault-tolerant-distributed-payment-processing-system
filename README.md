@@ -6,10 +6,10 @@ A distributed payment processing system prototype designed for an e-commerce pla
 
 | Role | Name | Registration Number | Email |
 |------|------|---------------------|-------|
-| **Fault Tolerance** (Member 1) | [Your Name] | [Reg. Number] | [email@example.com] |
-| **Data Replication & Consistency** (Member 2) | [Your Name] | [Reg. Number] | [email@example.com] |
-| **Time Synchronization** (Member 3) | [Your Name] | [Reg. Number] | [email@example.com] |
-| **Consensus & Agreement** (Member 4) | [Your Name] | [Reg. Number] | [email@example.com] |
+| **Fault Tolerance** (Member 1) | [Sachini Kapurubandara] | [IT24103571] | [sachkapuru@gmail.com] |
+| **Data Replication & Consistency** (Member 2) | [Sooriyabandara D.M.L.P.] | [IT24101776] | [praviniluhansa@gmail.com] |
+| **Time Synchronization** (Member 3) | [Magedaragama S D] | [IT24103451] | [sawandmagedaragama@gmail.com] |
+| **Consensus & Agreement** (Member 4) | [Hirusha Sipsara Silva] | [IT24103448] | [hirushasipsara@gmail.com] |
 
 ## System Architecture
 
@@ -206,9 +206,31 @@ file:///<project-path>/demo-ui/integrated-dashboard.html
 ### Replication (Ports 6001-6003)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/replication/process` | Store transaction |
-| GET | `/transactions` | Get all transactions |
-| GET | `/replication/status` | Get replication status |
+| POST | `/payment` | Submit a payment directly to a replication node |
+| GET | `/health` | Check node health |
+| GET | `/ledger` | Get all ledger entries stored on the node |
+| GET | `/transactions` | Get all stored transactions |
+| GET | `/replication/status` | Get replication status and quorum information |
+
+#### Replication Internal Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/internal/replicate` | Replicate a pending transaction to a peer |
+| PUT | `/internal/commit/{transactionId}` | Mark a replicated transaction as committed |
+| GET | `/internal/ledger-sync?since={timestamp}` | Sync missed transactions during recovery |
+
+Example `GET /replication/status` response:
+
+```json
+{
+  "nodeId": "node1",
+  "totalTransactions": 12,
+  "writeQuorum": 2,
+  "readQuorum": 2,
+  "peerCount": 2,
+  "dedupCacheSize": 12
+}
+```
 
 ## Project Structure
 
