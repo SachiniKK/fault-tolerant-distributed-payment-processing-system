@@ -1,7 +1,6 @@
 package com.payment.replication.service;
 
 import com.payment.common.Transaction;
-import com.payment.replication.ledger.LedgerEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,8 +22,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Entries expire after TTL (5 minutes) to prevent unbounded memory growth.
  */
 @Service
-public class IdempotencyService {
-    private static final Logger log = LoggerFactory.getLogger(IdempotencyService.class);
+public class DeduplicationService {
+    private static final Logger log = LoggerFactory.getLogger(DeduplicationService.class);
 
     // Stores idempotencyKey -> (LedgerEntry result, timestamp when recorded)
     private final ConcurrentHashMap<String, Long> seenTransactions = new ConcurrentHashMap<>();
@@ -45,15 +44,6 @@ public class IdempotencyService {
             return true;
         }
         return false;
-    }
-
-    /**
-     * Record the result of a successfully processed payment.
-     * Future requests with the same idempotencyKey will receive this result.
-     */
-    public void record(String idempotencyKey, Transaction transaction) {
-        seenTransactions.put(idempotencyKey, transaction.getCreatedTimestamp());
-        log.debug("[IDEMPOTENCY] Recorded key: {}", idempotencyKey);
     }
 
     /**
