@@ -27,12 +27,16 @@ public class ReplicationConfig {
     @Value("${app.replication.write-quorum:2}")
     private int writeQuorum;
 
+    @Value("${app.replication.read-quorum:2}")
+    private int readQuorum;
+
     @Value("${app.dedup.ttl-minutes:5}")
     private int idempotencyTtlMinutes;
 
     public String getNodeId() { return nodeId; }
     public int getPort() { return port; }
     public int getWriteQuorum() { return writeQuorum; }
+    public int getReadQuorum() { return readQuorum; }
     public int getIdempotencyTtlMinutes() { return idempotencyTtlMinutes; }
 
     public List<String> getPeerUrls() {

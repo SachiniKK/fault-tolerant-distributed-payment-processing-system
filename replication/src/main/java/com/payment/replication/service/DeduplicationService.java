@@ -1,5 +1,6 @@
 package com.payment.replication.service;
 
+import com.payment.common.Transaction;
 import com.payment.replication.ledger.LedgerEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,9 +27,7 @@ public class IdempotencyService {
     private static final Logger log = LoggerFactory.getLogger(IdempotencyService.class);
 
     // Stores idempotencyKey -> (LedgerEntry result, timestamp when recorded)
-    private final ConcurrentHashMap<String, LedgerEntry> resultCache = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Long> cacheTimestamps = new ConcurrentHashMap<>();
-
+    private final ConcurrentHashMap<String, Long> seenTransactions = new ConcurrentHashMap<>();
     private long ttlMillis = 5 * 60 * 1000L; // 5 minutes default
 
     public void setTtlMinutes(int minutes) {
@@ -36,20 +35,24 @@ public class IdempotencyService {
     }
 
     /**
-     * Check if this idempotencyKey has been seen before.
-     * Returns the cached result if yes, null if this is a fresh request.
+     * Returns true if this transaction ID has been seen before (duplicate).
+     * If not seen, records it and returns false.
      */
-    public LedgerEntry getIfDuplicate(String idempotencyKey) {
-        return resultCache.get(idempotencyKey);
+    public boolean isDuplicate(String transactionId) {
+        Long existingTimestamp = seenTransactions.putIfAbsent(transactionId, System.currentTimeMillis());
+        if (existingTimestamp != null) {
+            log.warn("[DEDUP] Duplicate detected: {}", transactionId);
+            return true;
+        }
+        return false;
     }
 
     /**
      * Record the result of a successfully processed payment.
      * Future requests with the same idempotencyKey will receive this result.
      */
-    public void record(String idempotencyKey, LedgerEntry result) {
-        resultCache.put(idempotencyKey, result);
-        cacheTimestamps.put(idempotencyKey, System.currentTimeMillis());
+    public void record(String idempotencyKey, Transaction transaction) {
+        seenTransactions.put(idempotencyKey, transaction.getCreatedTimestamp());
         log.debug("[IDEMPOTENCY] Recorded key: {}", idempotencyKey);
     }
 
@@ -61,11 +64,10 @@ public class IdempotencyService {
     public void cleanup() {
         long now = System.currentTimeMillis();
         int removed = 0;
-        Iterator<Map.Entry<String, Long>> it = cacheTimestamps.entrySet().iterator();
+        Iterator<Map.Entry<String, Long>> it = seenTransactions.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, Long> entry = it.next();
             if (now - entry.getValue() > ttlMillis) {
-                resultCache.remove(entry.getKey());
                 it.remove();
                 removed++;
             }
@@ -74,6 +76,6 @@ public class IdempotencyService {
     }
 
     public int size() {
-        return resultCache.size();
+        return seenTransactions.size();
     }
 }

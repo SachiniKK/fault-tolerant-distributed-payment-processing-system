@@ -1,9 +1,9 @@
 package com.payment.replication.replication;
 
+import com.payment.common.Transaction;
 import com.payment.replication.config.ReplicationConfig;
-import com.payment.replication.ledger.LedgerEntry;
-import com.payment.replication.ledger.LedgerStore;
-import com.payment.replication.service.IdempotencyService;
+import com.payment.replication.service.DeduplicationService;
+import com.payment.replication.service.TransactionLedger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,30 +32,21 @@ public class ReplicationController {
 
     @Autowired private ReplicationConfig config;
     @Autowired private ReplicationManager replicationManager;
-    @Autowired private LedgerStore ledgerStore;
-    @Autowired private IdempotencyService idempotencyService;
+    @Autowired private TransactionLedger ledgerStore;
+    @Autowired private DeduplicationService dedup;
 
     // ─────────────────────────────────────────────
     // EXTERNAL ENDPOINTS
     // ─────────────────────────────────────────────
 
     /**
-     * Primary entry point for clients submitting payments.
-     * Expects Idempotency-Key header to enable safe retries.
+     ** Submit a new payment. This node acts as coordinator:
+     ** saves locally and replicates to peers with quorum.
      */
     @PostMapping("/payment")
-    public ResponseEntity<LedgerEntry> submitPayment(
-            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-            @RequestBody LedgerEntry entry) {
-
-        // If client didn't provide idempotency key, use transactionId as fallback
-        if (idempotencyKey == null || idempotencyKey.isBlank()) {
-            idempotencyKey = entry.getTransactionId();
-        }
-        entry.setIdempotencyKey(idempotencyKey);
-
-        log.info("[API] Payment received: txId={} key={}", entry.getTransactionId(), idempotencyKey);
-        LedgerEntry result = replicationManager.processPayment(entry);
+    public ResponseEntity<Transaction> submitPayment(@RequestBody Transaction tx) {
+        log.info("[API] Payment received: {}", tx.getTransactionId());
+        Transaction result = replicationManager.processTransaction(tx);
         return ResponseEntity.ok(result);
     }
 
@@ -75,7 +66,7 @@ public class ReplicationController {
      * Used for verification — all nodes should return the same entries after replication.
      */
     @GetMapping("/ledger")
-    public ResponseEntity<Collection<LedgerEntry>> getLedger() {
+    public ResponseEntity<Collection<Transaction>> getLedger() {
         return ResponseEntity.ok(ledgerStore.getAll());
     }
 
@@ -88,8 +79,9 @@ public class ReplicationController {
                 "nodeId", config.getNodeId(),
                 "totalEntries", ledgerStore.size(),
                 "writeQuorum", config.getWriteQuorum(),
+                "readQuorum", config.getReadQuorum(),
                 "peerCount", config.getPeerUrls().size(),
-                "idempotencyCacheSize", idempotencyService.size()));
+                "dedupCacheSize", dedup.size()));
     }
 
     // ─────────────────────────────────────────────
@@ -101,9 +93,9 @@ public class ReplicationController {
      * Part of Step 3 in the PDF replication protocol.
      */
     @PostMapping("/internal/replicate")
-    public ResponseEntity<LedgerEntry> receiveReplicated(@RequestBody LedgerEntry entry) {
+    public ResponseEntity<Transaction> receiveReplicated(@RequestBody Transaction entry) {
         log.debug("[API] Received PENDING from primary: {}", entry.getTransactionId());
-        LedgerEntry result = replicationManager.receivePendingFromPrimary(entry);
+        Transaction result = replicationManager.handleReplicatedTransaction(entry);
         return ResponseEntity.ok(result);
     }
 
@@ -114,7 +106,7 @@ public class ReplicationController {
     @PutMapping("/internal/commit/{transactionId}")
     public ResponseEntity<Void> receiveCommit(@PathVariable("transactionId") String transactionId) {
         log.debug("[API] Received COMMIT signal for: {}", transactionId);
-        replicationManager.receiveCommitFromPrimary(transactionId);
+        replicationManager.commitTransaction(transactionId);
         return ResponseEntity.ok().build();
     }
 
@@ -124,9 +116,9 @@ public class ReplicationController {
      * to get all entries it missed. The 'since' parameter is a timestamp here.
      */
     @GetMapping("/internal/ledger-sync")
-    public ResponseEntity<List<LedgerEntry>> ledgerSync(
+    public ResponseEntity<List<Transaction>> ledgerSync(
             @RequestParam(value = "since", defaultValue = "0") long since) {
-        List<LedgerEntry> missed = ledgerStore.getEntriesSince(since);
+        List<Transaction> missed = ledgerStore.getTransactionsSince(since);
         log.info("[API] Ledger sync request: returning {} entries since {}", missed.size(), since);
         return ResponseEntity.ok(missed);
     }
