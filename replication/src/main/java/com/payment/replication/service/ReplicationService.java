@@ -1,10 +1,8 @@
-package com.payment.replication.replication;
+package com.payment.replication.service;
 
 import com.payment.common.Transaction;
 import com.payment.common.TransactionStatus;
 import com.payment.replication.config.ReplicationConfig;
-import com.payment.replication.service.DeduplicationService;
-import com.payment.replication.service.TransactionLedger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,8 +31,8 @@ import java.util.stream.Collectors;
  * - Recovery sync via getEntriesSince()
  */
 @Service
-public class ReplicationManager {
-    private static final Logger log = LoggerFactory.getLogger(ReplicationManager.class);
+public class ReplicationService {
+    private static final Logger log = LoggerFactory.getLogger(ReplicationService.class);
 
     @Autowired private ReplicationConfig config;
     @Autowired private TransactionLedger ledger;
