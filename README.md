@@ -6,10 +6,10 @@ A distributed payment processing system prototype designed for an e-commerce pla
 
 | Role | Name | Registration Number | Email |
 |------|------|---------------------|-------|
-| **Fault Tolerance** (Member 1) | [Sachini Kapurubandara] | [IT24103571] | [sachkapuru@gmail.com] |
-| **Data Replication & Consistency** (Member 2) | [Sooriyabandara D.M.L.P.] | [IT24101776] | [praviniluhansa@gmail.com] |
-| **Time Synchronization** (Member 3) | [Magedaragama S D] | [IT24103451] | [sawandmagedaragama@gmail.com] |
-| **Consensus & Agreement** (Member 4) | [Hirusha Sipsara Silva] | [IT24103448] | [hirushasipsara@gmail.com] |
+| **Fault Tolerance** (Member 1) | Sachini Kapurubandara | IT24103571 | sachkapuru@gmail.com |
+| **Data Replication & Consistency** (Member 2) | Sooriyabandara D.M.L.P. | IT24101776 | praviniluhansa@gmail.com |
+| **Time Synchronization** (Member 3) | Magedaragama S D | IT24103451 | sawandmagedaragama@gmail.com |
+| **Consensus & Agreement** (Member 4) | Hirusha Sipsara Silva | IT24103448 | hirushasipsara@gmail.com |
 
 ## System Architecture
 
