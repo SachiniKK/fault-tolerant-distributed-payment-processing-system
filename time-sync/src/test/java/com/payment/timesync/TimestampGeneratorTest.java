@@ -14,6 +14,9 @@ public class TimestampGeneratorTest {
     @Mock
     private NTPSyncService ntpSyncService;
 
+    @Mock
+    private ClockSkewSimulator clockSkewSimulator;
+
     @InjectMocks
     private TimestampGenerator timestampGenerator;
 
@@ -25,10 +28,12 @@ public class TimestampGeneratorTest {
     @Test
     void testBothTimestampsGenerated() {
         when(ntpSyncService.getOffsetMillis()).thenReturn(100L);
+        when(clockSkewSimulator.applySkew(anyLong())).thenAnswer(invocation -> invocation.getArgument(0));
         TimestampPair pair = timestampGenerator.generateTimestamps();
         assertNotNull(pair);
         assertTrue(pair.getTimestamp() > 0);
         assertTrue(pair.getCorrectedTimestamp() > 0);
+        // Corrected = withSkew (identity) + offset (100)
         assertEquals(100L, pair.getCorrectedTimestamp() - pair.getTimestamp());
     }
 

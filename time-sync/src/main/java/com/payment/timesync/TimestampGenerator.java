@@ -12,14 +12,19 @@ public class TimestampGenerator {
     @Autowired
     private NTPSyncService ntpSyncService;
 
+    @Autowired
+    private ClockSkewSimulator clockSkewSimulator;
+
     /**
-     * Generates timestamps with NTP offset applied.
-     * Both raw and corrected timestamps returned.
+     * Generates timestamps with intentional skew and NTP compensation.
+     * Raw timestamp includes simulated drift; Corrected timestamp has NTP offset applied.
      */
     public TimestampPair generateTimestamps() {
-        long raw = getRawTimestamp();
-        long corrected = getCorrectedTimestamp(raw);
-        return new TimestampPair(raw, corrected);
+        long raw = System.currentTimeMillis();
+        long withSkew = clockSkewSimulator.applySkew(raw);  // Apply intentional drift
+        long corrected = withSkew + ntpSyncService.getOffsetMillis(); // Apply NTP correction
+        
+        return new TimestampPair(withSkew, corrected);
     }
 
     public long getRawTimestamp() {

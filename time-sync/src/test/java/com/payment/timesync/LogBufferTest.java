@@ -1,6 +1,5 @@
 package com.payment.timesync;
 
-import com.payment.consensus.model.LogEntry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -18,37 +17,52 @@ public class LogBufferTest {
     }
 
     @Test
-    void testPriorityQueueOrdering() {
-        LogEntry e1 = new LogEntry(1, 1, "cmd1");
-        e1.setCorrectedTimestamp(2000L);
-        LogEntry e2 = new LogEntry(1, 2, "cmd2");
-        e2.setCorrectedTimestamp(1000L); // Arrived out of order
+    void testPriorityQueueOrdering() throws InterruptedException {
+        // Entry 1 has later correctedTimestamp (2000) than Entry 2 (1000)
+        BufferedLogEntry e1 = new BufferedLogEntry("cmd1", 1900, 2000);
+        BufferedLogEntry e2 = new BufferedLogEntry("cmd2", 900, 1000); // Arrived out of order
 
         logBuffer.bufferEntry(e1);
         logBuffer.bufferEntry(e2);
 
-        // Sleep to bypass window
-        try { Thread.sleep(300); } catch (InterruptedException e) {}
+        // Wait for 200ms window to expire
+        Thread.sleep(250);
 
-        List<LogEntry> ready = logBuffer.drainIfReady();
+        List<BufferedLogEntry> ready = logBuffer.drainIfReady();
         assertEquals(2, ready.size());
-        assertEquals(1000L, ready.get(0).getCorrectedTimestamp());
-        assertEquals(2000L, ready.get(1).getCorrectedTimestamp());
+        assertEquals(1000, ready.get(0).getCorrectedTimestamp()); // Smaller first
+        assertEquals(2000, ready.get(1).getCorrectedTimestamp()); // Larger second
     }
 
     @Test
-    void testWindowMechanism() {
-        LogEntry e1 = new LogEntry(1, 1, "cmd1");
-        e1.setCorrectedTimestamp(2000L);
-        
+    void testWindowMechanism() throws InterruptedException {
+        BufferedLogEntry e1 = new BufferedLogEntry("cmd1", 1900, 2000);
+
         logBuffer.bufferEntry(e1);
-        
-        // Immediate drain should be empty (before 200ms)
+
+        // Immediate drain should return empty (before 200ms)
         assertTrue(logBuffer.drainIfReady().isEmpty());
-        
-        // After 210ms should be ready
-        try { Thread.sleep(210); } catch (InterruptedException e) {}
+
+        // After 210ms the window should be expired
+        Thread.sleep(210);
         assertFalse(logBuffer.drainIfReady().isEmpty());
+    }
+
+    @Test
+    void testDrainReturnsChronologicalOrder() throws InterruptedException {
+        // Add 5 entries in reverse order
+        for (int i = 5; i >= 1; i--) {
+            logBuffer.bufferEntry(new BufferedLogEntry("cmd" + i, i * 200, i * 100));
+        }
+
+        Thread.sleep(250);
+
+        List<BufferedLogEntry> ready = logBuffer.drainIfReady();
+        assertEquals(5, ready.size());
+        for (int i = 0; i < ready.size() - 1; i++) {
+            assertTrue(ready.get(i).getCorrectedTimestamp() <= ready.get(i + 1).getCorrectedTimestamp(),
+                    "Entries should be in ascending correctedTimestamp order");
+        }
     }
 
     @Test
@@ -58,14 +72,18 @@ public class LogBufferTest {
         for (int i = 0; i < threads; i++) {
             final int id = i;
             devs[i] = new Thread(() -> {
-                LogEntry e = new LogEntry(1, id, "cmd" + id);
-                e.setCorrectedTimestamp(id * 100);
-                logBuffer.bufferEntry(e);
+                logBuffer.bufferEntry(new BufferedLogEntry("cmd" + id, id * 200, id * 100));
             });
             devs[i].start();
         }
         for (Thread t : devs) t.join();
-        
+
         assertEquals(threads, logBuffer.size());
+    }
+
+    @Test
+    void testEmptyBufferDrain() {
+        List<BufferedLogEntry> ready = logBuffer.drainIfReady();
+        assertTrue(ready.isEmpty());
     }
 }
