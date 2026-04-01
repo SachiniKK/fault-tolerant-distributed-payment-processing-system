@@ -21,6 +21,7 @@ import java.util.Map;
  * /fault/status — shows the health of all known peers (useful for demo)
  */
 @RestController
+@CrossOrigin
 public class FaultToleranceController {
 
     @Autowired

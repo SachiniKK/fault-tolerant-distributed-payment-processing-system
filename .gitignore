@@ -44,3 +44,29 @@ logs/
 .vscode/
 *.class
 
+### Node/Frontend ###
+node_modules/
+npm-debug.log
+yarn-error.log
+
+### Windows OS ###
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+### Environment & Secrets ###
+.env
+.env.*
+*.secret
+
+### ZooKeeper & Local Data ###
+zk-data/
+zookeeper.out
+zookeeper/data/
+version-2/
+data/
+
+### Frontend Builds ###
+dist/
+dist-ssr/
