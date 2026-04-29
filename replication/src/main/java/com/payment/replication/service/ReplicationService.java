@@ -56,6 +56,7 @@ public class ReplicationService {
         transaction.setProcessedByNode(config.getNodeId());
         ledger.save(transaction);
         log.info("[REPL] Pre-logged PENDING: {}", transaction.getTransactionId());
+        transaction.setCreatedTimestamp(System.currentTimeMillis());
 
         // Step 3: Replicate to all peers IN PARALLEL using CompletableFuture
         List<String> peers = config.getPeerUrls();
