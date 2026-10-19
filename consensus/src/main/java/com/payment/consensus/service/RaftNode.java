@@ -4,7 +4,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -29,6 +32,7 @@ import com.payment.consensus.model.VoteRequest;
 import com.payment.consensus.model.VoteResponse;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 // Raft consensus node: leader election, log replication, heartbeats.
 @Service
@@ -49,15 +53,29 @@ public class RaftNode {
     // Volatile state
     private volatile RaftState state = RaftState.FOLLOWER;
     private volatile long lastHeartbeatTime = System.currentTimeMillis();
+    private volatile int electionTimeoutMs;
     private volatile String currentLeaderId = null;
 
     // Leader-only state
     private final ConcurrentHashMap<String, Integer> nextIndex = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> matchIndex = new ConcurrentHashMap<>();
 
+    // Runs outgoing election RPCs so they never block the scheduler thread or hold the monitor
+    private final ExecutorService rpcExecutor = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "raft-rpc");
+        t.setDaemon(true);
+        return t;
+    });
+
     @PostConstruct
     public void init() {
+        resetElectionTimer();
         log.info("[RAFT] Node {} starting as FOLLOWER in term {}", config.getNodeId(), currentTerm);
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        rpcExecutor.shutdownNow();
     }
 
     // ELECTION TIMER
@@ -67,13 +85,19 @@ public class RaftNode {
             return;
 
         long elapsed = System.currentTimeMillis() - lastHeartbeatTime;
-        int timeout = ThreadLocalRandom.current().nextInt(
-                config.getElectionTimeoutMinMs(), config.getElectionTimeoutMaxMs());
 
-        if (elapsed > timeout) {
+        if (elapsed > electionTimeoutMs) {
             log.info("[RAFT] Election timeout ({} ms). Starting election.", elapsed);
             startElection();
         }
+    }
+
+    // Restart the election timer with a fresh random timeout. The timeout is picked
+    // once per reset: re-rolling it on every tick skews it toward the minimum.
+    private void resetElectionTimer() {
+        lastHeartbeatTime = System.currentTimeMillis();
+        electionTimeoutMs = ThreadLocalRandom.current().nextInt(
+                config.getElectionTimeoutMinMs(), config.getElectionTimeoutMaxMs());
     }
 
     // LEADER HEARTBEAT
@@ -88,49 +112,81 @@ public class RaftNode {
     }
 
     // LEADER ELECTION
-    private synchronized void startElection() {
-        currentTerm++;
-        state = RaftState.CANDIDATE;
-        votedFor = config.getNodeId();
-        lastHeartbeatTime = System.currentTimeMillis();
+    // The vote RPCs run in parallel on rpcExecutor and never hold this node's
+    // monitor, so a peer's vote/append request can be answered while we wait.
+    private void startElection() {
+        int electionTerm;
+        VoteRequest request;
+        synchronized (this) {
+            currentTerm++;
+            state = RaftState.CANDIDATE;
+            votedFor = config.getNodeId();
+            resetElectionTimer();
 
-        log.info("[RAFT] Node {} starting election for term {}", config.getNodeId(), currentTerm);
+            electionTerm = currentTerm;
+            request = new VoteRequest(
+                    currentTerm, config.getNodeId(),
+                    raftLog.getLastIndex(), raftLog.getLastTerm());
+        }
+
+        log.info("[RAFT] Node {} starting election for term {}", config.getNodeId(), electionTerm);
 
         AtomicInteger voteCount = new AtomicInteger(1);
         int neededVotes = config.getMajority();
 
-        VoteRequest request = new VoteRequest(
-                currentTerm, config.getNodeId(),
-                raftLog.getLastIndex(), raftLog.getLastTerm());
-
-        for (String peerUrl : config.getPeerUrls()) {
-            try {
-                String url = peerUrl + "/raft/vote";
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-                HttpEntity<VoteRequest> entity = new HttpEntity<>(request, headers);
-
-                ResponseEntity<VoteResponse> response = restTemplate.exchange(
-                        url, HttpMethod.POST, entity, VoteResponse.class);
-
-                VoteResponse voteResponse = response.getBody();
-                if (voteResponse != null) {
-                    if (voteResponse.getTerm() > currentTerm) {
-                        stepDown(voteResponse.getTerm());
-                        return;
-                    }
-                    if (voteResponse.isVoteGranted()) {
-                        int votes = voteCount.incrementAndGet();
-                        log.info("[RAFT] Received vote from peer. Total: {}/{}", votes, neededVotes);
-                    }
+        // Single-node cluster: our own vote is already a majority
+        if (voteCount.get() >= neededVotes) {
+            synchronized (this) {
+                if (currentTerm == electionTerm && state == RaftState.CANDIDATE) {
+                    becomeLeader();
                 }
-            } catch (Exception e) {
-                log.warn("[RAFT] Vote request to {} failed: {}", peerUrl, e.getMessage());
             }
+            return;
         }
 
-        if (state == RaftState.CANDIDATE && voteCount.get() >= neededVotes) {
-            becomeLeader();
+        for (String peerUrl : config.getPeerUrls()) {
+            CompletableFuture
+                    .supplyAsync(() -> requestVote(peerUrl, request), rpcExecutor)
+                    .thenAccept(response -> handleVoteResponse(electionTerm, response, voteCount, neededVotes));
+        }
+    }
+
+    private VoteResponse requestVote(String peerUrl, VoteRequest request) {
+        try {
+            String url = peerUrl + "/raft/vote";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<VoteRequest> entity = new HttpEntity<>(request, headers);
+
+            ResponseEntity<VoteResponse> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, VoteResponse.class);
+            return response.getBody();
+        } catch (Exception e) {
+            log.warn("[RAFT] Vote request to {} failed: {}", peerUrl, e.getMessage());
+            return null;
+        }
+    }
+
+    private synchronized void handleVoteResponse(int electionTerm, VoteResponse voteResponse,
+            AtomicInteger voteCount, int neededVotes) {
+        if (voteResponse == null)
+            return;
+
+        if (voteResponse.getTerm() > currentTerm) {
+            stepDown(voteResponse.getTerm());
+            return;
+        }
+
+        // Ignore replies to an older election, or arriving after we already won or stepped down
+        if (currentTerm != electionTerm || state != RaftState.CANDIDATE)
+            return;
+
+        if (voteResponse.isVoteGranted()) {
+            int votes = voteCount.incrementAndGet();
+            log.info("[RAFT] Received vote from peer. Total: {}/{}", votes, neededVotes);
+            if (votes >= neededVotes) {
+                becomeLeader();
+            }
         }
     }
 
@@ -145,15 +201,22 @@ public class RaftNode {
             matchIndex.put(peer, 0);
         }
 
-        leaderHeartbeat();
+        // Announce leadership right away, but without holding the monitor during the RPCs
+        rpcExecutor.execute(this::leaderHeartbeat);
     }
 
     private synchronized void stepDown(int newTerm) {
         log.info("[RAFT] Stepping down. Old term: {}, new term: {}", currentTerm, newTerm);
+        boolean wasFollower = state == RaftState.FOLLOWER;
         currentTerm = newTerm;
         state = RaftState.FOLLOWER;
         votedFor = null;
-        lastHeartbeatTime = System.currentTimeMillis();
+        // A follower that only learns of a newer term keeps its timer running. Otherwise a
+        // candidate with a stale log (whose vote we refuse) keeps pushing back the election
+        // of the node that could actually win.
+        if (!wasFollower) {
+            resetElectionTimer();
+        }
     }
 
     // HANDLE VOTE REQUEST
@@ -171,7 +234,7 @@ public class RaftNode {
 
         if (canVote && logOk) {
             votedFor = request.getCandidateId();
-            lastHeartbeatTime = System.currentTimeMillis();
+            resetElectionTimer();
             log.info("[RAFT] Voted for {} in term {}", request.getCandidateId(), currentTerm);
             return new VoteResponse(currentTerm, true);
         }
@@ -200,7 +263,7 @@ public class RaftNode {
                 stepDown(request.getTerm());
             }
             currentLeaderId = request.getLeaderId();
-            lastHeartbeatTime = System.currentTimeMillis();
+            resetElectionTimer();
         }
 
         // Log consistency check
